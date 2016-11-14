@@ -25,12 +25,6 @@ void GLFWCALL keyfun( int key, int action )
     fflush( stdout );
 }
 
-
-
-
-
-
-
 int main( void )
 {
 

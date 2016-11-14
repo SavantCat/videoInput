@@ -8,6 +8,7 @@
 #include  <iostream>
 
 #include "videoInput.h"
+
 #include <tchar.h>
 
 //Include Directshow stuff here so we don't worry about needing all the h files.
@@ -263,6 +264,24 @@ videoDevice::videoDevice(){
 
 }
 
+//e-con
+bool videoDevice::checkSingleByteFormat(GUID FormatType)
+{
+	bool IsSingleByteFormat = true;
+
+	if (FormatType == MEDIASUBTYPE_Y800 ||
+		FormatType == MEDIASUBTYPE_Y8 ||
+		FormatType == MEDIASUBTYPE_GREY)
+	{
+		IsSingleByteFormat = true;
+	}
+	else
+	{
+		IsSingleByteFormat = false;
+	}
+
+	return IsSingleByteFormat;
+}
 
 // ----------------------------------------------------------------------
 //	The only place we are doing new
@@ -277,7 +296,15 @@ void videoDevice::setSize(int w, int h){
 	{
 		width 				= w;
 		height 				= h;
-		videoSize 			= w*h*3;
+
+		//e-con
+		if (checkSingleByteFormat(pAmMediaType->subtype))
+			videoSize = w * h;
+		else if (pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+			videoSize = w * h * 2;
+		else
+			videoSize = w*h * 3;
+
 		sizeSet 			= true;
 		pixels				= new unsigned char[videoSize];
 		pBuffer				= new char[videoSize];
@@ -511,24 +538,28 @@ void makeGUID( GUID *guid, unsigned long Data1, unsigned short Data2, unsigned s
 }
 
 videoInput::videoInput(){
+	//added for the pixelink firewire camera
+	//MEDIASUBTYPE_Y800 = (GUID)FOURCCMap(FCC('Y800'));
+	makeGUID(&MEDIASUBTYPE_Y800, 0x30303859, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71);
+	makeGUID(&MEDIASUBTYPE_Y8, 0x20203859, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71);
+	makeGUID(&MEDIASUBTYPE_GREY, 0x59455247, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71);
+
+	//e-con
+	makeGUID(&MEDIASUBTYPE_Y16, 0x20363159, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71);
+	makeGUID(&MEDIASUBTYPE_BY8, 0x20385942, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
+
 	//start com
 	comInit();
 
 	devicesFound 		= 0;
 	callbackSetCount 	= 0;
 	bCallback	 		= true;
-	requestedMediaSubType = MEDIASUBTYPE_RGB24;
+	requestedMediaSubType = MEDIASUBTYPE_Y16;
 
     //setup a max no of device objects
     for(int i=0; i<VI_MAX_CAMERAS; i++)  VDList[i] = new videoDevice();
 
     if(verbose)printf("\n***** VIDEOINPUT LIBRARY - %2.04f - TFW2013 *****\n\n",VI_VERSION);
-
-	//added for the pixelink firewire camera
-// 	MEDIASUBTYPE_Y800 = (GUID)FOURCCMap(FCC('Y800'));
-	makeGUID( &MEDIASUBTYPE_Y800, 0x30303859, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 );
-	makeGUID( &MEDIASUBTYPE_Y8, 0x20203859, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 );
-	makeGUID( &MEDIASUBTYPE_GREY, 0x59455247, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 );
 
 	//The video types we support
 	//in order of preference
@@ -554,6 +585,10 @@ videoInput::videoInput(){
     mediaSubtypes[16]	= MEDIASUBTYPE_Y8;
 	mediaSubtypes[17]	= MEDIASUBTYPE_GREY;
 	mediaSubtypes[18]	= MEDIASUBTYPE_MJPG; // added by gameover
+
+	//e-con
+	mediaSubtypes[19]	= MEDIASUBTYPE_Y16;
+	mediaSubtypes[20]	= MEDIASUBTYPE_BY8;
 
 	//The video formats we support
 	formatTypes[VI_NTSC_M]		= AnalogVideo_NTSC_M;
@@ -704,6 +739,7 @@ bool videoInput::setupDevice(int deviceNumber, int w, int h){
 	if(deviceNumber >= VI_MAX_CAMERAS || VDList[deviceNumber]->readyToCapture) return false;
 
 	setAttemptCaptureSize(deviceNumber, w, h);
+	//VDList[deviceNumber]->setSize(w, h);
 	if(setup(deviceNumber))return true;
 	return false;
 }
@@ -818,7 +854,7 @@ std::vector <std::string> videoInput::getDeviceList(){
 	int numDev = videoInput::listDevices(true);
 	std::vector <std::string> deviceList; 
 	for(int i = 0; i < numDev; i++){
-		char * name =  videoInput::getDeviceName(i); 
+		const char * name =  videoInput::getDeviceName(i); 
 		if( name == NULL )break; 
 		deviceList.push_back(name); 
 	}
@@ -963,6 +999,9 @@ int videoInput::getSize(int id){
 
 }
 
+GUID videoInput::getMediasubtype(int deviceID) {
+	return VDList[deviceID]->pAmMediaType->subtype;
+}
 
 // ----------------------------------------------------------------------
 // Uses a supplied buffer
@@ -987,7 +1026,14 @@ bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlu
 				int height 			= VDList[id]->height;
 				int width  			= VDList[id]->width;
 
-				processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+				//e-con
+				if (VDList[id]->checkSingleByteFormat(VDList[id]->pAmMediaType->subtype))
+					memcpy(dst, src, width * height);
+				else if (VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+					memcpy(dst, src, width * height * 2);
+				else
+					processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+
 				VDList[id]->sgCallback->newFrame = false;
 
 			LeaveCriticalSection(&VDList[id]->sgCallback->critSection);
@@ -1010,7 +1056,14 @@ bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlu
 					int height 			= VDList[id]->height;
 					int width 			= VDList[id]->width;
 
-					processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+					//e-con
+					if (VDList[id]->checkSingleByteFormat(VDList[id]->pAmMediaType->subtype))
+						memcpy(dst, src, width * height);
+					else if (VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+						memcpy(dst, src, width * height * 2);
+					else
+						processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
+
 					success = true;
 				}else{
 					if(verbose)printf("ERROR: GetPixels() - bufferSizes do not match!\n");
@@ -1502,6 +1555,8 @@ void videoInput::setAttemptCaptureSize(int id, int w, int h){
 	VDList[id]->tryHeight   = h;
 	VDList[id]->tryDiffSize = true;
 
+	
+
 }
 
 
@@ -1654,8 +1709,10 @@ void videoInput::getMediaSubtypeAsString(GUID type, char * typeAsString){
 	else if(type == MEDIASUBTYPE_Y211) strncpy(tmpStr, "Y211", maxStr);
 	else if(type == MEDIASUBTYPE_AYUV) strncpy(tmpStr, "AYUV", maxStr);
 	else if(type == MEDIASUBTYPE_Y800) strncpy(tmpStr, "Y800", maxStr);
-	else if(type == MEDIASUBTYPE_Y8) strncpy(tmpStr, "Y8", maxStr);
+	else if(type == MEDIASUBTYPE_Y8)   strncpy(tmpStr, "Y8", maxStr);
 	else if(type == MEDIASUBTYPE_GREY) strncpy(tmpStr, "GREY", maxStr);
+	else if(type == MEDIASUBTYPE_BY8)  strncpy(tmpStr, "BY8", maxStr);
+	else if(type == MEDIASUBTYPE_Y16)  strncpy(tmpStr, "Y16", maxStr);
 	else strncpy(tmpStr, "OTHER", maxStr);
 
 	memcpy(typeAsString, tmpStr, sizeof(char)*8);
@@ -1948,10 +2005,6 @@ int videoInput::start(int deviceID, videoDevice *VD){
 
 		}
 
-
-
-
-
 		//if we didn't find the requested size - lets try and find the closest matching size
 		if( foundSize == false ){
 			if( verbose )printf("SETUP: couldn't find requested size - searching for closest matching size\n");
@@ -2035,7 +2088,13 @@ int videoInput::start(int deviceID, videoDevice *VD){
 	ZeroMemory(&mt,sizeof(AM_MEDIA_TYPE));
 
 	mt.majortype 	= MEDIATYPE_Video;
-	mt.subtype 		= MEDIASUBTYPE_RGB24;
+
+	//e-con
+	if (VDList[VD->myID]->checkSingleByteFormat(VD->pAmMediaType->subtype) || (VD->pAmMediaType->subtype == MEDIASUBTYPE_Y16))
+		mt.subtype = VD->pAmMediaType->subtype;
+	else
+		mt.subtype = MEDIASUBTYPE_RGB24;	//Making it RGB24, does conversion from YUV to RGB
+
 	mt.formattype 	= FORMAT_VideoInfo;
 
 	//VD->pAmMediaType->subtype = VD->videoType;

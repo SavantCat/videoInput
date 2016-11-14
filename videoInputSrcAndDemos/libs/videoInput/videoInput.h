@@ -119,7 +119,7 @@ Thanks to:
 //videoInput defines
 #define VI_VERSION	 0.200
 #define VI_MAX_CAMERAS  20
-#define VI_NUM_TYPES    19 //DON'T TOUCH
+#define VI_NUM_TYPES    21 //DON'T TOUCH
 #define VI_NUM_FORMATS  18 //DON'T TOUCH
 
 //defines for setPhyCon - tuner is not as well supported as composite and s-video
@@ -169,6 +169,8 @@ Thanks to:
 #define VI_MEDIASUBTYPE_Y8      16
 #define VI_MEDIASUBTYPE_GREY    17
 #define VI_MEDIASUBTYPE_MJPG    18
+#define VI_MEDIASUBTYPE_Y16     19
+#define VI_MEDIASUBTYPE_BY8     20
 
 //allows us to directShow classes here with the includes in the cpp
 struct ICaptureGraphBuilder2;
@@ -187,15 +189,26 @@ typedef _AMMediaType AM_MEDIA_TYPE;
 //don't touch
 static int comInitCount = 0;
 
+//
+//Extra video subtypes
+static GUID MEDIASUBTYPE_Y800;
+static GUID MEDIASUBTYPE_Y8;
+static GUID MEDIASUBTYPE_GREY;
+
+//e-con
+static GUID MEDIASUBTYPE_Y16;
+static GUID MEDIASUBTYPE_BY8;
 
 ////////////////////////////////////////   VIDEO DEVICE   ///////////////////////////////////
 
-class videoDevice{
-
-
+	class videoDevice {
 	public:
 
 		videoDevice();
+
+		//e-con
+		bool checkSingleByteFormat(GUID FormatType);
+
 		void setSize(int w, int h);
 		void NukeDownstream(IBaseFilter *pBF);
 		void destroyGraph();
@@ -209,7 +222,7 @@ class videoDevice{
 
 		ICaptureGraphBuilder2 *pCaptureGraph;	// Capture graph builder object
 		IGraphBuilder *pGraph;					// Graph builder object
-	    IMediaControl *pControl;				// Media control object
+		IMediaControl *pControl;				// Media control object
 		IBaseFilter *pVideoInputFilter;  		// Video Capture filter
 		IBaseFilter *pGrabberF;
 		IBaseFilter * pDestFilter;
@@ -243,17 +256,16 @@ class videoDevice{
 
 		unsigned char * pixels;
 		char * pBuffer;
-
-};
-
+	};
 
 
 
-//////////////////////////////////////   VIDEO INPUT   /////////////////////////////////////
+
+	//////////////////////////////////////   VIDEO INPUT   /////////////////////////////////////
 
 
 
-class videoInput{
+	class videoInput {
 
 	public:
 		videoInput();
@@ -269,7 +281,7 @@ class videoInput{
 
 		//Functions in rough order they should be used.
 		static int listDevices(bool silent = false);
-		static std::vector <std::string> getDeviceList(); 
+		static std::vector <std::string> getDeviceList();
 
 		//needs to be called after listDevices - otherwise returns NULL
 		static const char * getDeviceName(int deviceID);
@@ -284,7 +296,9 @@ class videoInput{
 
 		//some devices will stop delivering frames after a while - this method gives you the option to try and reconnect
 		//to a device if videoInput detects that a device has stopped delivering frames.
-		//you MUST CALL isFrameNew every app loop for this to have any effect
+		//you MUST CALL 
+		
+		//every app loop for this to have any effect
 		void setAutoReconnectOnFreeze(int deviceNumber, bool doReconnect, int numMissedFramesBeforeReconnect);
 
 		//Choose one of these four to setup your device
@@ -335,6 +349,8 @@ class videoInput{
 		int  getWidth(int deviceID);
 		int  getHeight(int deviceID);
 		int  getSize(int deviceID);
+
+		GUID getMediasubtype(int deviceID);
 
 		//completely stops and frees a device
 		void stopDevice(int deviceID);
@@ -390,11 +406,6 @@ class videoInput{
 		GUID CAPTURE_MODE;
 		GUID requestedMediaSubType;
 
-		//Extra video subtypes
-		GUID MEDIASUBTYPE_Y800;
-		GUID MEDIASUBTYPE_Y8;
-		GUID MEDIASUBTYPE_GREY;
-
 		videoDevice * VDList[VI_MAX_CAMERAS];
 		GUID mediaSubtypes[VI_NUM_TYPES];
 		long formatTypes[VI_NUM_FORMATS];
@@ -403,6 +414,6 @@ class videoInput{
 
 		static char deviceNames[VI_MAX_CAMERAS][255];
 
-};
+	};
 
  #endif
