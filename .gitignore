@@ -28,3 +28,6 @@ obj/
 */*/*.layout
 */*/*.depend
 
+videoInputSrcAndDemos/VS-videoInputcompileAsLib/.vs/videoInput/v15/Browse.VC.db
+videoInputSrcAndDemos/VS-videoInputcompileAsLib/.vs/videoInput/v15/Browse.VC.opendb
+videoInputSrcAndDemos/VS-videoInputDemoWithSrc/.vs/videoInputBasicDemo/v15/Browse.VC.db

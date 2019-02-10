@@ -287,7 +287,7 @@ bool videoDevice::checkSingleByteFormat(GUID FormatType)
 //	The only place we are doing new
 //
 // ----------------------------------------------------------------------
-
+//import
 void videoDevice::setSize(int w, int h){
 	if(sizeSet){
 		if(verbose)printf("SETUP: Error device size should not be set more than once \n");
@@ -300,10 +300,12 @@ void videoDevice::setSize(int w, int h){
 		//e-con
 		if (checkSingleByteFormat(pAmMediaType->subtype))
 			videoSize = w * h;
-		else if (pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+		else if ((pAmMediaType->subtype == MEDIASUBTYPE_Y16) || (pAmMediaType->subtype == MEDIASUBTYPE_YUY2))
 			videoSize = w * h * 2;
 		else
-			videoSize = w*h * 3;
+			videoSize = w * h * 3;
+
+		printf("Allocate size %d \n", videoSize);
 
 		sizeSet 			= true;
 		pixels				= new unsigned char[videoSize];
@@ -1006,7 +1008,7 @@ GUID videoInput::getMediasubtype(int deviceID) {
 // ----------------------------------------------------------------------
 // Uses a supplied buffer
 // ----------------------------------------------------------------------
-
+//import
 bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlue, bool flipImage){
 
 	bool success = false;
@@ -1026,10 +1028,10 @@ bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlu
 				int height 			= VDList[id]->height;
 				int width  			= VDList[id]->width;
 
-				//e-con
+				//e-con and ps4eye
 				if (VDList[id]->checkSingleByteFormat(VDList[id]->pAmMediaType->subtype))
 					memcpy(dst, src, width * height);
-				else if (VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+				else if ((VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16) || (VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_YUY2))
 					memcpy(dst, src, width * height * 2);
 				else
 					processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
@@ -1056,10 +1058,10 @@ bool videoInput::getPixels(int id, unsigned char * dstBuffer, bool flipRedAndBlu
 					int height 			= VDList[id]->height;
 					int width 			= VDList[id]->width;
 
-					//e-con
+					//e-con and ps4eye
 					if (VDList[id]->checkSingleByteFormat(VDList[id]->pAmMediaType->subtype))
 						memcpy(dst, src, width * height);
-					else if (VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16)
+					else if ((VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_Y16) || (VDList[id]->pAmMediaType->subtype == MEDIASUBTYPE_YUY2))
 						memcpy(dst, src, width * height * 2);
 					else
 						processPixels(src, dst, width, height, flipRedAndBlue, flipImage);
@@ -2090,7 +2092,7 @@ int videoInput::start(int deviceID, videoDevice *VD){
 	mt.majortype 	= MEDIATYPE_Video;
 
 	//e-con
-	if (VDList[VD->myID]->checkSingleByteFormat(VD->pAmMediaType->subtype) || (VD->pAmMediaType->subtype == MEDIASUBTYPE_Y16))
+	if (VDList[VD->myID]->checkSingleByteFormat(VD->pAmMediaType->subtype) || (VD->pAmMediaType->subtype == MEDIASUBTYPE_Y16) || (VD->pAmMediaType->subtype == MEDIASUBTYPE_YUY2))
 		mt.subtype = VD->pAmMediaType->subtype;
 	else
 		mt.subtype = MEDIASUBTYPE_RGB24;	//Making it RGB24, does conversion from YUV to RGB
